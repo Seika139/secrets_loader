@@ -18,10 +18,7 @@ format:
 	poetry run isort src/ tests/
 	poetry run black src/ tests/
 
-test: test-local test-github-actions-no-docker test-local-docker test-github-actions-docker
-
-test-local:
-	poetry run pytest tests/test_secrets_loader.py
+test: test-github-actions-no-docker test-local-docker test-github-actions-docker
 
 test-local-no-docker:
 	poetry run pytest tests/test_secrets_loader.py::test_local_no_docker
@@ -30,11 +27,11 @@ test-github-actions-no-docker:
 	poetry run pytest tests/test_secrets_loader.py::test_github_actions_no_docker
 
 test-local-docker:
-	docker-compose -f tests/docker-compose.local.yml up -d
+	docker compose -f tests/compose.local.yml up -d
 	poetry run pytest tests/test_secrets_loader.py::test_local_docker_compose_secrets
-	docker-compose -f tests/docker-compose.local.yml down
+	docker compose -f tests/compose.local.yml down
 
 test-github-actions-docker:
-	docker-compose -f tests/docker-compose.github.yml up -d
+	docker compose -f tests/compose.github.yml up -d
 	poetry run pytest tests/test_secrets_loader.py::test_github_actions_docker_compose_secrets
-	docker-compose -f tests/docker-compose.github.yml down
+	docker compose -f tests/compose.github.yml down
