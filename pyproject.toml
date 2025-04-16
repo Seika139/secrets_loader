@@ -17,6 +17,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 packages = [{ include = "secrets_loader", from = "src" }]
+include = ["src/py.typed"]
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
@@ -59,3 +60,4 @@ warn_unreachable = true
 strict_optional = true
 namespace_packages = true
 explicit_package_bases = true
+mypy_path = ["src"]
