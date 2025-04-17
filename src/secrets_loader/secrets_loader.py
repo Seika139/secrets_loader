@@ -1,48 +1,60 @@
 import os
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
 
 class SecretsLoader:
-    _instance = None
-    _loaded_env: dict[str, str | None] = {}
+    _instance: Optional["SecretsLoader"] = None
+    _loaded_env: Dict[str, Optional[str]] = {}
     _used_keys: set[str] = set()
-    _filepath: str | None = None
+    _filepath: Optional[str] = None
 
-    def __new__(cls, filepath: str | None = ".env") -> "SecretsLoader":
+    def __new__(cls, filepath: Optional[str] = ".env") -> "SecretsLoader":
         if cls._instance is None:
-            cls._instance = super(SecretsLoader, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._filepath = filepath
             cls._load_initial_env(filepath)
         return cls._instance
 
     @classmethod
-    def _load_initial_env(cls, filepath: str | None) -> None:
+    def _load_initial_env(cls, filepath: Optional[str]) -> None:
         if filepath:
-            load_dotenv(dotenv_path=filepath, override=True)
-            cls._loaded_env.update(os.environ)
+            env_file_path = Path(filepath)
+            if env_file_path.exists():
+                load_dotenv(dotenv_path=filepath, override=True)
+                cls._loaded_env.update(os.environ)
+            else:
+                print(f"Warning: .env file not found at {filepath}")
         else:
             cls._loaded_env.update(os.environ)
 
-        # Docker Compose secrets の読み込み (存在する場合)
-        secrets_dir = "/run/secrets"
-        if os.path.isdir(secrets_dir):
-            for filename in os.listdir(secrets_dir):
-                secret_path = os.path.join(secrets_dir, filename)
+        cls._load_docker_secrets()
+        cls._load_github_actions_secrets()
+
+    @classmethod
+    def _load_docker_secrets(cls) -> None:
+        print("DEBUG: _load_docker_secrets called")
+        secrets_dir = Path("/run/secrets")
+        if secrets_dir.is_dir():
+            print(f"DEBUG: Secrets directory found: {secrets_dir}")
+            for filename in secrets_dir.iterdir():
+                print(f"DEBUG: Processing secret file: {filename}")
                 try:
-                    with open(secret_path, "r") as f:
-                        value = f.read().strip()
-                        if filename.upper() not in cls._loaded_env:
-                            cls._loaded_env[filename.upper()] = value
+                    value = filename.read_text().strip()
+                    cls._loaded_env[filename.name.upper()] = value
+                    print(f"DEBUG: Loaded secret: {filename.name.upper()} = {value}")
                 except IOError:
-                    pass
+                    print(f"Warning: Could not read Docker Secret: {filename}")
+        else:
+            print("DEBUG: Secrets directory not found")
 
-        # GitHub Actions secrets の優先的な読み込み (環境変数として設定されている)
-        for key, value in os.environ.items():
-            if key not in cls._loaded_env:
-                cls._loaded_env[key] = value
+    @classmethod
+    def _load_github_actions_secrets(cls) -> None:
+        cls._loaded_env.update(os.environ)  # GitHub Actions secrets are in os.environ
 
-    def get(self, key: str, default: str | None = None) -> str | None:
+    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
         upper_key = key.upper()
         if upper_key in self._loaded_env:
             self._used_keys.add(upper_key)
@@ -50,14 +62,14 @@ class SecretsLoader:
         return default
 
     @property
-    def filepath(self) -> str | None:
+    def filepath(self) -> Optional[str]:
         return self._filepath
 
     @property
     def used_keys(self) -> set[str]:
         return set(self._used_keys)
 
-    def __setattr__(self, name: str, value: str) -> None:
+    def __setattr__(self, name: str, value: Any) -> None:
         if name in self.__dict__:
             raise AttributeError(f"Cannot reassign instance attribute '{name}'")
         super().__setattr__(name, value)

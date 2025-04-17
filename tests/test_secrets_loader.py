@@ -1,37 +1,77 @@
 import os
+from pathlib import Path
+
 import pytest
+
 from secrets_loader import SecretsLoader
 
 
-def test_local_no_docker() -> None:
-    with open(".env.test", "w") as f:
-        f.write("TEST_KEY=local_no_docker_value\n")
-    loader = SecretsLoader(".env.test")
+def test_local_no_docker(tmp_path: Path) -> None:
+    # local && docker なし
+    env_file = tmp_path / ".env.test"
+    env_file.write_text("TEST_KEY=local_no_docker_value\n")
+    loader = SecretsLoader(str(env_file))
     assert loader.get("TEST_KEY") == "local_no_docker_value"
-    os.remove(".env.test")
 
 
-def test_github_actions_no_docker(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GITHUB_ACTIONS_SECRET_KEY", "github_actions_secret_value")
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ,
+    reason="This test is only for local execution.",
+)
+def test_github_actions_no_docker_on_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    # GitHub Actions && docker なしを local で実行
+    monkeypatch.setenv("GITHUB_ACTIONS_SECRET_KEY", "local_github_actions_secret_value")
     loader = SecretsLoader(None)
-    assert loader.get("GITHUB_ACTIONS_SECRET_KEY") == "github_actions_secret_value"
+    assert (
+        loader.get("GITHUB_ACTIONS_SECRET_KEY") == "local_github_actions_secret_value"
+    )
 
 
-def test_local_docker_compose_secrets() -> None:
-    with open("local_docker_secret.txt", "w") as f:
-        f.write("local_docker_secret_value_from_compose\n")
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" not in os.environ,
+    reason="This test is only for GitHub Actions execution.",
+)
+def test_github_actions_no_docker_on_ci() -> None:
+    # GitHub Actions && docker なしを GitHub Actions で実行
+    # GitHub Actions 環境では、GITHUB_ACTIONS_SECRET_KEY は自動的に環境変数として設定される
+    loader = SecretsLoader(None)
+    assert (
+        loader.get("GITHUB_ACTIONS_SECRET_KEY")
+        == os.environ["GITHUB_ACTIONS_SECRET_KEY"]
+    )
+
+
+def test_local_docker_on_local() -> None:
+    # local && docker あり
     loader = SecretsLoader(None)
     assert loader.get("LOCAL_DOCKER_SECRET") == "local_docker_secret_value_from_compose"
-    os.remove("local_docker_secret.txt")
 
 
-def test_github_actions_docker_compose_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ,
+    reason="This test is only for local execution.",
+)
+def test_github_actions_docker_on_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    # GigHub Actions && docker ありを local で実行
     monkeypatch.setenv("GITHUB_ACTIONS_SECRET_KEY", "github_actions_secret_value_ga")
-    with open("github_actions_secret.txt", "w") as f:
-        f.write("github_actions_secret_value_from_compose\n")
     loader = SecretsLoader(None)
     assert loader.get("GITHUB_ACTIONS_SECRET_KEY") == "github_actions_secret_value_ga"
     assert (
         loader.get("COMPOSE_DEFAULT_KEY") == "compose_default_value"
     )  # 環境変数から読み込まれる前提
-    os.remove("github_actions_secret.txt")
+
+
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" not in os.environ,
+    reason="This test is only for GitHub Actions execution.",
+)
+def test_github_actions_docker_on_ci() -> None:
+    # GitHub Actions && docker ありを GitHub Actions で実行
+    loader = SecretsLoader(None)
+    assert (
+        loader.get("GITHUB_ACTIONS_SECRET_KEY")
+        == os.environ["GITHUB_ACTIONS_SECRET_KEY"]
+    )
+    assert (
+        loader.get("COMPOSE_DEFAULT_KEY") == "compose_default_value"
+    )  # 環境変数から読み込まれる前提
