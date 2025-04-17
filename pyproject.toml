@@ -1,4 +1,3 @@
-
 [project]
 name = "secrets-loader"
 version = "0.1.0"
@@ -7,9 +6,9 @@ authors = [
     { name = "Seika139", email = "33862136+Seika139@users.noreply.github.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.9,<4.0"
 license = { file = "LICENSE" }
-dependencies = []
+dependencies = ["python-dotenv (>=1.1.0,<2.0.0)"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -43,7 +42,7 @@ ensure_newline_before_comments = true
 [tool.flake8]
 max-line-length = 88
 # Ignore Errors which can conflict with black
-extend-ignore = ["E203", "E501", "F401"]
+extend-ignore = ["E203", "E501", "F401", "W503"]
 # Check explicitly for Errors (E), Warnings (W), and flake8 Errors (F)
 select = ["E", "W", "F"]
 
